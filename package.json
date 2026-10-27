@@ -1,0 +1,18 @@
+{
+  "name": "pharos-doc-search-cli",
+  "version": "1.0.0",
+  "description": "Read-only Developer Docs MCP CLI for Pharos Agent Arena",
+  "type": "module",
+  "bin": {
+    "pharos-docs": "./bin/pharos-docs.mjs"
+  },
+  "scripts": {
+    "start": "node ./bin/pharos-docs.mjs",
+    "test": "node --test",
+    "check": "node --check ./bin/pharos-docs.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
