@@ -225,3 +225,24 @@ node .\bin\pharos-docs.mjs --tools
 An actual Windows run showed that the Docs MCP server returned EVM documentation for an unrelated query about 'Quantum Banana X999'. Those links were valid documentation URLs but did not answer the question. Version 1.0 now includes a conservative topic-overlap check, so off-topic documents are refused with 'No good answer found'. The check is heuristic, and unusual paraphrases may also be refused.
 
 To get the latest update, clone the public repository into a clean folder, run `npm test`, then try `What is Pharos Atlantic Testnet?` and `Where is the official guide for Quantum Banana X999?`. The first should cite Atlantic documentation; the second should explicitly decline to answer. This note describes expected behavior, not a claim that the updated code has already been retested on the user's PC.
+
+
+## Windows Node.js 24: native `UV_HANDLE_CLOSING` assertion (27 Oct 2026)
+
+A real PowerShell test run on Node.js 24 returned **8/9 passing tests**, while the `--tools` subprocess aborted with exit code `3221226505` (`src\\win\\async.c:94`). The affected CLI branch used `process.exit(0)` immediately after fetching the MCP tools. Node.js documents that forced exit can interrupt in-flight asynchronous operations, and a matching Windows libuv assertion has been reported upstream: [nodejs/node#56645](https://github.com/nodejs/node/issues/56645).
+
+The CLI now drains the notification response and lets `--tools` **exit naturally**, without a forced exit after network I/O. GitHub Actions now includes Windows Node.js 24 in addition to Linux.
+
+**This fix has been committed, but successful test results on the reporter's Windows machine are not yet confirmed.**
+
+To patch an already-extracted copy without Git or a new ZIP, from the repository root:
+
+```powershell
+Copy-Item .\\bin\\pharos-docs.mjs .\\bin\\pharos-docs.mjs.backup -Force
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/trantanlong2411-droid/pharos-doc-search-cli/main/bin/pharos-docs.mjs" -OutFile .\\bin\\pharos-docs.mjs -UseBasicParsing
+node --check .\\bin\\pharos-docs.mjs
+npm.cmd test
+```
+
+Expected outcome: `tests 9`, `pass 9`, `fail 0`. If the platform assertion still occurs, capture the full terminal output and `node -v` rather than suppressing the test. Do not count a native-process crash as a pass.
+
