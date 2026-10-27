@@ -41,7 +41,7 @@ async function mcp(method, params = {}, notification = false) {
     const response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(payload), signal: controller.signal });
     if (!response.ok) throw new Error('MCP HTTP ' + response.status + (response.status === 404 ? ': endpoint not found' : ''));
     if (response.headers.get('mcp-session-id')) session = response.headers.get('mcp-session-id');
-    if (notification) return null;
+    if (notification) { await response.arrayBuffer(); return null; }
     const body = await response.text();
     if (body.length > 2000000) throw new Error('MCP response too large');
     let data = null;
@@ -161,8 +161,10 @@ try {
   if (showTools) {
     if (json) console.log(JSON.stringify(discovered.map(x => ({ name: x.name, description: x.description })), null, 2));
     else { console.log('Developer Docs MCP tools:'); discovered.forEach(x => console.log('- ' + x.name + ': ' + (x.description || ''))); }
-    process.exit(0);
-  }
+    // Never force exit after using fetch: Node 24 on Windows can crash in
+    // libuv (UV_HANDLE_CLOSING) while its async network handles are closing.
+    // The process exits naturally once the event loop has drained.
+  } else {
   const ask = discovered.find(x => x.name === 'askQuestion');
   const search = discovered.find(x => x.name === 'searchDocumentation');
   if (!ask && !search) throw new Error('No read-only Q&A/search tool found on the Docs MCP server');
@@ -180,6 +182,7 @@ try {
       console.log('\nAnswer (Docs MCP excerpt):\n' + response.answer + '\n\nSources (returned by MCP):');
       response.sources.forEach((u, i) => console.log('  ' + (i + 1) + '. ' + u));
     } else console.log('\nNo good answer found: ' + response.reason);
+  }
   }
 } catch (err) {
   console.error('Pharos Docs CLI error: ' + (err.name === 'AbortError' ? 'request timed out' : err.message));
