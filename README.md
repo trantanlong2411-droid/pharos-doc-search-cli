@@ -171,7 +171,7 @@ The implementation uses Node.js built-ins (`fetch`, `URL`) and the MCP Streamabl
 
 ## License
 
-MIT. The CLI is openly published in this repository; the license text is in `LICENSE`.
+No license has been selected by the repository owner. This is a public example project; public visibility alone does not grant reuse rights.
 
 ## 7. Capture *live* evidence for your Agent Arena submission (Windows)
 
