@@ -71,6 +71,44 @@ function findUrls(value, matches = new Set(), depth = 0) {
   else if (typeof value === 'object') Object.values(value).forEach(x => findUrls(x, matches, depth + 1));
   return matches;
 }
+
+/*
+ * Conservative relevance check. A Docs MCP response can include valid documentation
+ * links while answering a DIFFERENT question (observed for "Quantum Banana X999").
+ * URLs alone do not prove relevance. Keep the check independent of any specific
+ * test phrase, and prefer a polite refusal over showing unrelated documentation.
+ */
+const STOP = new Set(('a an and are as at be by can could do does for from guide guides how i in information is it me my of official on or our please question regarding search show some tell the there these this to using what where which who why with would you your pharos docs documentation document developer developers find found help link links source sources about').split(' '));
+const RELATED = {
+  deploy: ['deploy','deployment','deploying','dapp','hardhat'],
+  contract: ['contract','contracts','solidity','dapp'],
+  rpc: ['rpc','endpoint','node'],
+  testnet: ['testnet','testing'],
+  wallet: ['wallet','metamask']
+};
+function stem(term) {
+  if (term.endsWith('ments') && term.length > 7) return term.slice(0,-5);
+  if (term.endsWith('ment') && term.length > 6) return term.slice(0,-4);
+  if (term.endsWith('ing') && term.length > 6) return term.slice(0,-3);
+  if (term.endsWith('ed') && term.length > 5) return term.slice(0,-2);
+  if (term.endsWith('s') && term.length > 4) return term.slice(0,-1);
+  return term;
+}
+function terms(s) {
+  return (String(s).toLowerCase().match(/[a-z0-9]+/g) || [])
+    .filter(w => w.length >= 3 && !STOP.has(w)).map(stem);
+}
+function relevantToQuestion(q, answer, sources) {
+  // Include the actually cited documentation paths, but never treat any random URL
+  // or the fact that "Pharos" appears as evidence of a relevant answer.
+  const qTerms = [...new Set(terms(q))];
+  if (!qTerms.length) return false; // insufficient context: do not make a claim
+  const paths = sources.map(u => { try { return decodeURIComponent(new URL(u).pathname).replace(/[-_/]/g, ' '); } catch { return ''; } }).join(' ');
+  const evidence = new Set(terms(answer + ' ' + paths));
+  const matched = qTerms.filter(w => evidence.has(w) || (RELATED[w] || []).some(x => evidence.has(stem(x)))).length;
+  return matched >= (qTerms.length >= 3 ? 2 : 1);
+}
+
 function outputFrom(result) {
   if (result.isError) return { ok: false, answer: '', sources: [], reason: 'Documentation MCP returned an error.' };
   let sections = [];
@@ -89,7 +127,16 @@ function outputFrom(result) {
     return { ok: false, answer: '', sources: [], reason: 'No relevant documentation found.', notFound: true };
   }
   if (!sources.length) return { ok: false, answer: '', sources: [], reason: 'No verifiable documentation URL in the MCP response.' };
-  return { ok: true, answer: answer.length > 1200 ? answer.slice(0, 1200) + '…' : answer, sources, reason: null };
+  if (!relevantToQuestion(question, answer, sources))
+    return { ok: false, answer: '', sources: [], reason: 'The MCP response contains documentation links, but no sufficiently relevant answer to your question.', notFound: true };
+  // Avoid presenting a long list of off-topic references when more specific ones exist.
+  const topic = new Set(terms(question));
+  const matchingSources = sources.filter(u => {
+    try { return terms(decodeURIComponent(new URL(u).pathname).replace(/[-_/]/g, ' ')).some(w => topic.has(w)); }
+    catch { return false; }
+  });
+  const citedSources = matchingSources.length ? matchingSources : sources;
+  return { ok: true, answer: answer.length > 1200 ? answer.slice(0, 1200) + '…' : answer, sources: citedSources, reason: null };
 }
 function toolArgs(tool) {
   const props = tool.inputSchema?.properties || {};
