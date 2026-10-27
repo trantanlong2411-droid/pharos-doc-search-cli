@@ -1,4 +1,4 @@
-name: CLI tests
+name: CLI tests and live MCP evidence
 on:
   push:
   pull_request:
@@ -11,5 +11,39 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: npm test
-      - run: npm run check
+      - name: Automated tests (local mock, not live Pharos)
+        run: npm test
+      - name: Syntax check
+        run: npm run check
+  live-docs-mcp-smoke:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Query official public Docs MCP and record exact results
+        shell: bash
+        run: |
+          mkdir -p proof
+          run_cli() {
+            label="$1"
+            shift
+            node ./bin/pharos-docs.mjs "$@" >"proof/$label.txt" 2>&1
+            printf '%s\n' "$?" >"proof/$label.exit"
+          }
+          run_cli tools --tools
+          run_cli deploy "How do I deploy a contract on Pharos?"
+          run_cli testnet "What is Pharos Atlantic Testnet?"
+          run_cli unknown "Where is the official guide for Quantum Banana X999?"
+          for file in proof/*.exit; do echo "$file: $(cat "$file")"; done
+          for file in proof/*.txt; do echo "=== $file ==="; cat "$file"; done
+          # A failed remote call remains in the evidence artifact, and is not marked successful.
+          exit 0
+      - name: Upload actual remote results (including any errors)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pharos-docs-mcp-live-results
+          path: proof/
+          retention-days: 30
