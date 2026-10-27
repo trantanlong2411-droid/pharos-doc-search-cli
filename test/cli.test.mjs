@@ -18,7 +18,7 @@ async function server(mode = 'answer') {
     if (x.method === 'initialize') output = { protocolVersion: '2025-03-26', capabilities: {}, serverInfo: { name: 'local-test', version: '1' } };
     else if (x.method === 'tools/list') output = { tools: [{ name:'askQuestion', inputSchema: { type:'object', required:['question'], properties: { question: { type: 'string' } } } }] };
     else if (x.method === 'tools/call') {
-      const answer = mode === 'empty' ? 'No relevant documentation found.' : mode === 'uncited' ? 'A guide exists' : 'Use https://docs.pharos.xyz/developer-guide/hardhat/write-your-first-dapp';
+      const answer = mode === 'empty' ? 'No relevant documentation found.' : mode === 'uncited' ? 'A guide exists' : mode === 'negative' ? 'I cannot find an official guide for Quantum Banana X999. See https://docs.pharos.xyz/node-and-validator-guide/validator-requirements' : 'Use https://docs.pharos.xyz/developer-guide/hardhat/write-your-first-dapp';
       output = { content: [{ type: 'text', text: answer }] };
     } else { res.writeHead(404).end(); return; }
     res.end(JSON.stringify({ jsonrpc:'2.0', id:x.id, result: output }));
@@ -62,4 +62,9 @@ test('uncited answer gets withheld',async()=>{
 test('unreachable MCP endpoint reports a useful error',async()=>{
   const r=await run(['--endpoint','http://127.0.0.1:1/mcp','--timeout','1500','Q']);
   assert.notEqual(r.code,0); assert.match(r.stderr,/Pharos Docs CLI error/i);
+});
+test('negative MCP response with unrelated links is still not found',async()=>{
+  const m=await server('negative');
+  try { const r=await run(['--endpoint',m.url,'Quantum Banana X999']); assert.equal(r.code,0,r.stderr); assert.match(r.stdout,/No good answer found/); assert.doesNotMatch(r.stdout,/Sources \(returned by MCP\)/); }
+  finally {await m.close();}
 });
