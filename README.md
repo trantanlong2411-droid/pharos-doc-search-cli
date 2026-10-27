@@ -218,3 +218,10 @@ node .\bin\pharos-docs.mjs --tools
 ```
 
 `Test-Path` should print `True`. This repository supersedes the older standalone ZIP; do not combine files from both versions.
+
+
+## Relevance validation (October 27, 2026)
+
+An actual Windows run showed that the Docs MCP server returned EVM documentation for an unrelated query about 'Quantum Banana X999'. Those links were valid documentation URLs but did not answer the question. Version 1.0 now includes a conservative topic-overlap check, so off-topic documents are refused with 'No good answer found'. The check is heuristic, and unusual paraphrases may also be refused.
+
+To get the latest update, clone the public repository into a clean folder, run `npm test`, then try `What is Pharos Atlantic Testnet?` and `Where is the official guide for Quantum Banana X999?`. The first should cite Atlantic documentation; the second should explicitly decline to answer. This note describes expected behavior, not a claim that the updated code has already been retested on the user's PC.
