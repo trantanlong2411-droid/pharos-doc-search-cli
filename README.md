@@ -121,7 +121,7 @@ npm.cmd test
 npm.cmd run check
 ```
 
-The committed automated test suite has **six tests** using a **local mock MCP server**:
+The committed automated test suite has **seven tests** using a **local mock MCP server**:
 
 1. CLI help responds correctly.
 2. Discovers the actual tool list exposed by the mock MCP server.
@@ -129,6 +129,7 @@ The committed automated test suite has **six tests** using a **local mock MCP se
 4. Handles an unknown topic without fabricating an answer.
 5. Withholds an uncited response.
 6. Reports a useful network error when the endpoint is unreachable.
+7. Treats an explicit negative MCP answer as not found, even if the server includes unrelated source links.
 
 These tests are *not* a live Developer Docs MCP test. **To meet the Agent Arena evidence requirement**, also run `--tools`, the 3 example questions above, and capture terminal output while connected to the real endpoint. A repository link or static HTML alone does not prove the remote endpoint was reached.
 
@@ -157,7 +158,7 @@ The implementation uses Node.js built-ins (`fetch`, `URL`) and the MCP Streamabl
 
 ## 6. Limitations / reviewer notes
 
-- **Live Pharos MCP connectivity was not tested in the artifact-generation environment** because DNS/network access to `docs.pharos.xyz` is unavailable there. The local tests passed against a mock MCP endpoint. A live Windows verification is still required before claiming full completion.
+- **Live Docs MCP connectivity was verified through GitHub Actions on October 27, 2026**. The runner discovered the remote tools and retrieved sourced answers for contract deployment and Atlantic Testnet; the task's unknown-query behavior has since been hardened. Review the latest [GitHub Actions evidence](https://github.com/trantanlong2411-droid/pharos-doc-search-cli/actions) to see individual results and any errors. The separate local artifact-generation environment had no DNS access; the live tests ran on GitHub's hosted runner.
 - Developer Docs MCP may be intermittently inaccessible (previous AI.PHAROS sessions demonstrated both no tools and four tools). Error messages are surfaced instead of masked.
 - If the server returns a hallucinated link, this simple client cannot independently verify a webpage's contents. It guarantees only that the displayed source was returned by MCP, never invented by the CLI.
 - No secrets or private keys are needed. No blockchain transactions or feedback submissions are sent.
@@ -191,15 +192,29 @@ For an AI.PHAROS platform-side record, ask its Docs MCP agent to run the same qu
 
 ## 8. Offline verification
 
-Run `npm.cmd test` to exercise a local mock MCP server without Internet. These six deterministic checks must not be presented as proof of communication with the live Pharos documentation service.
+Run `npm.cmd test` to exercise a local mock MCP server without Internet. These seven deterministic checks must not be presented as proof of communication with the live Pharos documentation service.
 
 ## 9. GitHub Actions (live smoke test and artifact)
 
 
-The project includes [`.github/workflows/test.yml`](.github/workflows/test.yml). On each push (or manually through **Actions → CLI tests and live MCP evidence → Run workflow**), it runs the six local tests and additionally attempts four real read-only requests against the Pharos Developer Docs MCP.
+The project includes [`.github/workflows/test.yml`](.github/workflows/test.yml). On each push (or manually through **Actions → CLI tests and live MCP evidence → Run workflow**), it runs the seven local tests and additionally attempts four real read-only requests against the Pharos Developer Docs MCP.
 
 The live job saves `proof/tools.txt`, `proof/deploy.txt`, `proof/testnet.txt`, `proof/unknown.txt` and matching `.exit` files into the `pharos-docs-mcp-live-results` artifact.
 
 **Check these files before claiming live success:** an exit code `0` means the CLI ran without transport error, but for a successful answer you must additionally see a nonempty `Sources (returned by MCP)` section. A failure must remain described as a failure, not a successful query.
 
 Do not confuse this endpoint with [Pharos Chain MCP](https://mcp.pharos.xyz/mcp), which provides blockchain tools rather than the documentation search required here.
+
+## Download and path troubleshooting on Windows
+
+The earlier standalone ZIP contained a top-level `pharos-doc-search-cli` directory. Extracting it into another directory with the same name can create a nested path and cause `MODULE_NOT_FOUND`. Prefer cloning this current repository into an empty directory:
+
+```powershell
+cd D:\BlockChain\Pharos
+git clone https://github.com/trantanlong2411-droid/pharos-doc-search-cli.git pharos-doc-search-cli-fixed
+cd .\pharos-doc-search-cli-fixed
+Test-Path .\bin\pharos-docs.mjs
+node .\bin\pharos-docs.mjs --tools
+```
+
+`Test-Path` should print `True`. This repository supersedes the older standalone ZIP; do not combine files from both versions.
