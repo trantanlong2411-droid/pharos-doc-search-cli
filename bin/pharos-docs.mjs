@@ -64,7 +64,7 @@ function findUrls(value, matches = new Set(), depth = 0) {
   if (typeof value === 'string') {
     const urls = value.match(/https?:\/\/[^\s<>"'\])}]+/g) || [];
     for (let u of urls) {
-      u = u.replace(/[.,;:]+$/, '');
+      u = u.replace(/[.,;:]+$/, '').split(String.fromCharCode(96))[0];
       try { const parsedUrl = new URL(u); if (parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:') matches.add(parsedUrl.toString()); } catch {}
     }
   } else if (Array.isArray(value)) value.forEach(x => findUrls(x, matches, depth + 1));
@@ -84,9 +84,9 @@ function outputFrom(result) {
     catch { sections.push(item.text); }
   }
   const answer = sections.join('\n\n').trim();
-  const sources = Array.from(findUrls(result)).slice(0, 8);
-  if (!answer || answer === '[]' || /^(sorry|not found|no relevant|no documentation|nothing found)/i.test(answer)) {
-    return { ok: false, answer: '', sources: [], reason: 'No relevant documentation found.' };
+  const sources = Array.from(findUrls(result)).filter(u => { try { return new URL(u).hostname === 'docs.pharos.xyz'; } catch { return false; } }).slice(0, 8);
+  if (!answer || answer === '[]' || /^(sorry|not found|no relevant|no documentation|nothing found|i (?:cannot|can't|could not|couldn't|was unable to) (?:find|locate)|there (?:is no|are no))/i.test(answer)) {
+    return { ok: false, answer: '', sources: [], reason: 'No relevant documentation found.', notFound: true };
   }
   if (!sources.length) return { ok: false, answer: '', sources: [], reason: 'No verifiable documentation URL in the MCP response.' };
   return { ok: true, answer: answer.length > 1200 ? answer.slice(0, 1200) + '…' : answer, sources, reason: null };
@@ -121,7 +121,7 @@ try {
   if (!ask && !search) throw new Error('No read-only Q&A/search tool found on the Docs MCP server');
   let selected = ask || search;
   let response = outputFrom(await mcp('tools/call', { name: selected.name, arguments: toolArgs(selected) }));
-  if (!response.ok && ask && search && selected.name === 'askQuestion') {
+  if (!response.ok && !response.notFound && ask && search && selected.name === 'askQuestion') {
     selected = search;
     response = outputFrom(await mcp('tools/call', { name: selected.name, arguments: toolArgs(selected) }));
   }
