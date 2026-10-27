@@ -39,9 +39,20 @@ jobs:
           run_cli unknown "Where is the official guide for Quantum Banana X999?"
           for file in proof/*.exit; do echo "$file: $(cat "$file")"; done
           for file in proof/*.txt; do echo "=== $file ==="; cat "$file"; done
-          # A failed remote call remains in the evidence artifact, and is not marked successful.
+          # Keep the proof files even if a remote answer turns out to be irrelevant.
           exit 0
+      - name: Validate real results, including the unknown-topic regression
+        shell: bash
+        run: |
+          for label in tools deploy testnet unknown; do
+            test "$(cat "proof/$label.exit")" = "0" || { echo "MCP request failed: $label"; exit 1; }
+          done
+          grep -q 'searchDocumentation' proof/tools.txt
+          grep -q 'Sources (returned by MCP)' proof/deploy.txt
+          grep -q 'Sources (returned by MCP)' proof/testnet.txt
+          grep -q 'No good answer found' proof/unknown.txt
       - name: Upload actual remote results (including any errors)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pharos-docs-mcp-live-results
