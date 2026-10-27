@@ -121,15 +121,14 @@ npm.cmd test
 npm.cmd run check
 ```
 
-The automated test suite uses a **local fake MCP server** and checks:
+The committed automated test suite has **six tests** using a **local mock MCP server**:
 
-1. Real MCP-shaped initialization and `tools/list` handling.
-2. Successful `tools/call` with a genuine URL coming from the **mock tool result**.
-3. JSON and Streamable HTTP SSE response parsing.
-4. Missing answer -> explicit refusal.
-5. Uncited text -> explicit refusal, not a fabricated link.
-6. HTTP failures -> diagnostic error.
-7. Runtime validation of tool names and argument schemas.
+1. CLI help responds correctly.
+2. Discovers the actual tool list exposed by the mock MCP server.
+3. Returns a natural-language answer with a URL provided by the mock MCP server.
+4. Handles an unknown topic without fabricating an answer.
+5. Withholds an uncited response.
+6. Reports a useful network error when the endpoint is unreachable.
 
 These tests are *not* a live Developer Docs MCP test. **To meet the Agent Arena evidence requirement**, also run `--tools`, the 3 example questions above, and capture terminal output while connected to the real endpoint. A repository link or static HTML alone does not prove the remote endpoint was reached.
 
@@ -154,7 +153,7 @@ Return MCP answer and *only* URLs found in the MCP response
     +--> no answer / missing citations / tool error -> explain, never invent
 ```
 
-The implementation uses Node.js built-ins (`fetch`, `node:url`) and the MCP Streamable HTTP protocol. It supports JSON responses, SSE event frames, `Mcp-Session-Id`, `MCP-Protocol-Version`, timeouts and MCP JSON-RPC errors. For maximum interoperability, the official MCP SDK is recommended for production and for more complex server behaviors; this project is intentionally small and zero-dependency for easy task evaluation.
+The implementation uses Node.js built-ins (`fetch`, `URL`) and the MCP Streamable HTTP protocol. It supports JSON responses, SSE event frames, `Mcp-Session-Id`, `MCP-Protocol-Version`, timeouts and MCP JSON-RPC errors. For maximum interoperability, the official MCP SDK is recommended for production and for more complex server behaviors; this project is intentionally small and zero-dependency for easy task evaluation.
 
 ## 6. Limitations / reviewer notes
 
@@ -172,7 +171,7 @@ The implementation uses Node.js built-ins (`fetch`, `node:url`) and the MCP Stre
 
 ## License
 
-MIT — see `LICENSE`.
+MIT. The CLI is openly published in this repository; the license text is in `LICENSE`.
 
 ## 7. Capture *live* evidence for your Agent Arena submission (Windows)
 
@@ -190,16 +189,17 @@ node .\bin\pharos-docs.mjs "Where is the official guide for a nonexistent featur
 
 For an AI.PHAROS platform-side record, ask its Docs MCP agent to run the same questions with `askQuestion` and show the tool call/source links. Link or screenshot that session if the chat link is not visible to reviewers in an incognito browser.
 
-## 8. Offline reproducibility
+## 8. Offline verification
 
-```powershell
-npm.cmd run demo
-```
+Run `npm.cmd test` to exercise a local mock MCP server without Internet. These six deterministic checks must not be presented as proof of communication with the live Pharos documentation service.
 
-This runs **exactly three queries** against a self-contained local mock MCP server and saves their **actual mock outputs** to [`examples/mock-demo-output.txt`](examples/mock-demo-output.txt). The first two are deliberately labelled `MOCK answer` and use example documentation URLs; the third tests the no-answer behavior. These are regression-test examples **not evidence of a Pharos live call**.
+## 9. GitHub Actions (live smoke test and artifact)
 
-## 9. GitHub Actions (optional live proof)
 
-This repository includes [`.github/workflows/verify.yml`](.github/workflows/verify.yml). Every push runs local unit tests automatically. After you publish the code to GitHub, open **Actions → Verify Pharos Docs Search CLI → Run workflow** to run a **manual, real remote MCP smoke test** from GitHub's runner. Download the `real-pharos-docs-mcp-results` artifact to inspect the actual tool list and the three query results; it clearly distinguishes transport errors from successful sourced answers.
+The project includes [`.github/workflows/test.yml`](.github/workflows/test.yml). On each push (or manually through **Actions → CLI tests and live MCP evidence → Run workflow**), it runs the six local tests and additionally attempts four real read-only requests against the Pharos Developer Docs MCP.
 
-A failed remote MCP test should be reported honestly, not presented as successful evidence. The ordinary unit tests use a mock server; the manually launched live job does not.
+The live job saves `proof/tools.txt`, `proof/deploy.txt`, `proof/testnet.txt`, `proof/unknown.txt` and matching `.exit` files into the `pharos-docs-mcp-live-results` artifact.
+
+**Check these files before claiming live success:** an exit code `0` means the CLI ran without transport error, but for a successful answer you must additionally see a nonempty `Sources (returned by MCP)` section. A failure must remain described as a failure, not a successful query.
+
+Do not confuse this endpoint with [Pharos Chain MCP](https://mcp.pharos.xyz/mcp), which provides blockchain tools rather than the documentation search required here.
